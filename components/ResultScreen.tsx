@@ -7,10 +7,10 @@ type Props = {
   questions: Question[];
   graded: GradeResult;
   onRetry: () => void;
-  onNewFile: () => void;
+  onHome: () => void;
 };
 
-export default function ResultScreen({ questions, graded, onRetry, onNewFile }: Props) {
+export default function ResultScreen({ questions, graded, onRetry, onHome }: Props) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -51,8 +51,8 @@ export default function ResultScreen({ questions, graded, onRetry, onNewFile }: 
       </ol>
 
       <div className="actions">
-        <button className="button" onClick={onNewFile}>
-          다른 파일 올리기
+        <button className="button" onClick={onHome}>
+          처음으로
         </button>
         <button className="button primary" onClick={onRetry}>
           같은 문제 다시 풀기

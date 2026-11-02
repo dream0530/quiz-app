@@ -1,19 +1,20 @@
 import type { Question } from "./types";
 
 export type ParseResult =
-  | { ok: true; questions: Question[] }
+  | { ok: true; title: string | null; questions: Question[] }
   | { ok: false; errors: string[] };
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-// 업로드한 파일의 글자 내용을 검사한다. 하나라도 틀리면 파일 전체를 받지 않고,
-// 이용자가 고칠 수 있도록 문제 번호와 함께 쉬운 말로 된 안내 목록을 돌려준다.
+// 문제 파일의 글자 내용을 검사한다. 하나라도 틀리면 파일 전체를 받지 않고,
+// 고칠 수 있도록 문제 번호와 함께 쉬운 말로 된 안내 목록을 돌려준다.
 export function parseQuestionFile(text: string): ParseResult {
   let data: unknown;
   try {
-    data = JSON.parse(text);
+    // Windows 메모장 등이 파일 맨 앞에 붙이는 보이지 않는 표시(BOM)는 지우고 읽는다.
+    data = JSON.parse(text.replace(/^﻿/, ""));
   } catch {
     return {
       ok: false,
@@ -69,5 +70,11 @@ export function parseQuestionFile(text: string): ParseResult {
   if (errors.length > 0) {
     return { ok: false, errors };
   }
-  return { ok: true, questions: list as Question[] };
+  // title은 선택 항목이다. 없거나 비어 있으면 null.
+  const title = (data as { title?: unknown }).title;
+  return {
+    ok: true,
+    title: isNonEmptyString(title) ? title.trim() : null,
+    questions: list as Question[],
+  };
 }

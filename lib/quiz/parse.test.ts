@@ -20,9 +20,14 @@ describe("parseQuestionFile", () => {
     const result = parseQuestionFile(text);
     expect(result.ok).toBe(true);
     if (result.ok) {
+      expect(result.title).toBeNull();
       expect(result.questions).toHaveLength(10);
       expect(result.questions).toEqual(JSON.parse(text).questions);
     }
+  });
+
+  it("accepts a file that starts with a UTF-8 BOM", () => {
+    expect(parseQuestionFile("﻿" + fileWith([validQuestion])).ok).toBe(true);
   });
 
   it("rejects text that is not JSON", () => {

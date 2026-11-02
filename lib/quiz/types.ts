@@ -6,6 +6,13 @@ export type Question = {
   explanation: string;
 };
 
+// question-papers 폴더에서 읽은 문제지. title이 없던 파일은 파일 이름이 title이 된다.
+export type QuestionPaper = {
+  id: string;
+  title: string;
+  questions: Question[];
+};
+
 // 이용자가 고른 보기 번호(1~4). 아직 고르지 않았으면 null.
 export type Answer = 1 | 2 | 3 | 4 | null;
 
