@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublishToggle from "@/components/PublishToggle";
+import TeacherAiGenerate from "@/components/TeacherAiGenerate";
 import TeacherLogin from "@/components/TeacherLogin";
 import TeacherLogout from "@/components/TeacherLogout";
 import TeacherUpload from "@/components/TeacherUpload";
@@ -55,6 +56,11 @@ export default async function TeacherPage() {
         </div>
       ) : (
         <>
+          <div className="panel">
+            <h2>PDF로 AI 문제 만들기</h2>
+            <TeacherAiGenerate />
+          </div>
+
           <div className="panel">
             <h2>문제지 등록</h2>
             <TeacherUpload />

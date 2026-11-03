@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { renewTeacherSession } from "@/lib/firebase/client";
 
 // 문제지 공개·비공개 바꾸기 버튼. 서버가 교사인지 다시 확인한다.
 export default function PublishToggle({ id, published }: { id: string; published: boolean }) {
@@ -13,6 +14,7 @@ export default function PublishToggle({ id, published }: { id: string; published
     setBusy(true);
     setError("");
     try {
+      await renewTeacherSession();
       const res = await fetch(`/api/teacher/papers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { renewTeacherSession } from "@/lib/firebase/client";
 import { parseQuestionFile } from "@/lib/quiz/parse";
 import type { Question } from "@/lib/quiz/types";
 
@@ -52,6 +53,7 @@ export default function TeacherUpload() {
     setBusy(true);
     setErrors([]);
     try {
+      await renewTeacherSession();
       const res = await fetch("/api/teacher/papers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

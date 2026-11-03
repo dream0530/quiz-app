@@ -12,6 +12,7 @@ type PaperDoc = {
   title: string;
   questions: Question[];
   published: boolean;
+  source?: "json" | "ai";
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -29,11 +30,13 @@ export type CreatePaperResult =
   | { ok: true; id: string }
   | { ok: false; duplicateOf: string };
 
-// 처음 등록할 때는 비공개로 저장한다. 같은 문항 내용이 이미 있으면 그 제목을 알려준다.
+// JSON 파일 등록은 비공개로, AI 생성 저장은 바로 공개로 저장한다.
+// 같은 문항 내용이 이미 있으면 그 제목을 알려준다.
 export async function createPaper(
   title: string,
   questions: Question[],
   teacherEmail: string,
+  options: { published: boolean; source: "json" | "ai" } = { published: false, source: "json" },
 ): Promise<CreatePaperResult> {
   const id = paperFingerprint(questions);
   const ref = papers().doc(id);
@@ -41,7 +44,8 @@ export async function createPaper(
     await ref.create({
       title,
       questions: cleanQuestions(questions),
-      published: false,
+      published: options.published,
+      source: options.source,
       createdBy: teacherEmail,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -63,6 +67,12 @@ export async function setPublished(id: string, published: boolean): Promise<bool
   if (!snap.exists) return false;
   await ref.update({ published, updatedAt: FieldValue.serverTimestamp() });
   return true;
+}
+
+// 등록된 모든 문제지 제목(공개·비공개 모두). AI 제목 중복 확인에 쓴다.
+export async function listPaperTitles(): Promise<string[]> {
+  const snap = await papers().select("title").get();
+  return snap.docs.map((doc) => doc.get("title") as string);
 }
 
 // 교사 화면: 등록한 모든 문제지(최근 것부터).
