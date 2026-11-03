@@ -7,7 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 교사가 미리 준비한 문제지(JSON)를 첫 화면 목록에서 골라 4지선다 문제를 끝까지 풀고, 마지막에 점수·문항별 정오·해설을 확인하는 교육용 웹앱입니다. 요구사항의 기준 문서는 [PRD.md](PRD.md)입니다.
 
 - 기술 구성: Next.js + TypeScript, Vercel 배포, PC·휴대폰 모두 사용 가능한 화면
-- 현재 상태: 1일차 앱 완성. 2일차 시작: 교사·학생 화면 나누기 추가(2026-11-03, 로컬 확인). Google 로그인·결과 저장은 아직 없음. Firebase CLI·공식 플러그인(스킬+MCP)은 사용자 범위로 설치·로그인됨, Firebase 프로젝트는 아직 없음.
+- 현재 상태: 1일차 앱 완성. 2일차: 교사·학생 화면 나누기, 교사 Google 로그인(로컬 확인, 2026-11-03). 결과 저장(Firestore)은 아직 없음. Vercel에는 프로젝트·배포가 없음.
+- Firebase: 프로젝트 `quiz-app-3fd80`(무료 요금제), 웹 앱 `quiz-app-web`, Authentication에서 Google 로그인 사용 설정, 허용 도메인은 기본값(localhost 포함). 배포하면 그 주소를 허용 도메인에 추가해야 함. Firebase CLI·공식 플러그인(스킬+MCP)은 사용자 범위로 설치·로그인됨(PowerShell에서는 `firebase.cmd`).
+- `.env.local`(Git 제외): `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`(공개되어도 되는 웹 앱 설정값), `TEACHER_EMAIL`(교사로 허용할 Google 계정 1개). 배포할 때는 같은 값을 배포 설정에 넣어야 함.
+- Claude 앱 미리보기에서는 Google 로그인 팝업이 열리지 않음. 교사 로그인 확인은 사용자의 Chrome에서 http://localhost:3000/teacher 로 함.
 - `sample-questions.json`은 파일 형식 참고용·검사용입니다. 앱에 고정하거나 자동으로 불러오지 않습니다.
 
 ## 명령어 (Windows PowerShell에서 `npm.cmd`로 실행 확인함)
@@ -20,7 +23,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 구조
 
 - `lib/quiz/`: 화면과 분리된 문제 처리 부분. `parse.ts`는 문제 파일 글자를 검사하고(하나라도 틀리면 파일 전체 거절, "N번 문제: …" 형식의 쉬운 오류 목록, 맨 앞 BOM 허용, 선택 항목 `title` 반환), `score.ts`는 `Math.round(정답 수 / 전체 × 100)`으로 채점, `papers.ts`는 `question-papers/` 폴더를 읽어 문제지 목록을 만듭니다(파일 이름 순, 형식이 틀린 파일은 빼고 경고만 남김, title이 없으면 파일 이름). 2일차에 문제를 다른 곳에서 받아와도 이 부분을 그대로 다시 씁니다.
-- 화면 주소: `/`(`app/page.tsx`, 교사·학생 선택), `/teacher`(`app/teacher/page.tsx`, 교사 화면 기본 틀: 문제 등록·학생 결과는 자리만, 문제지는 제목·문항 수만 넘김), `/student`(`app/student/page.tsx`). 사용자 결정으로 주소를 나눴고, 학생 화면에는 교사 화면 내용이 들어가지 않습니다. 아직 로그인이 없어 누구나 `/teacher`를 열 수 있습니다.
+- 화면 주소: `/`(`app/page.tsx`, 교사·학생 선택), `/teacher`(`app/teacher/page.tsx`, 교사 화면 기본 틀: 문제 등록·학생 결과는 자리만, 문제지는 제목·문항 수만 넘김), `/student`(`app/student/page.tsx`). 사용자 결정으로 주소를 나눴고, 학생 화면에는 교사 화면 내용이 들어가지 않습니다.
+- 교사 로그인: `components/TeacherLogin.tsx`(Google 팝업 로그인 → ID 토큰을 `app/api/teacher/session/route.ts`에 보냄), 서버가 `lib/teacher/server.ts`의 `checkTeacherToken`으로 firebase-admin `verifyIdToken`(비밀키 없이 projectId만) + `lib/teacher/access.ts`의 `isAllowedTeacher`(Google 확인 이메일 == `TEACHER_EMAIL`)를 검사해 허용될 때만 httpOnly 쿠키 `teacher_token`(ID 토큰, 약 1시간)을 둠. `/teacher`는 매 요청 `getSignedInTeacher()`로 다시 검사하고 아니면 로그인 화면만 보냄. 허용 안 된 계정은 안내 후 Firebase에서도 로그아웃. 쿠키가 만료되면 로그인 화면이 Firebase 로그인 기록으로 자동 재확인. 앞으로 교사 기능(API 등)도 `getSignedInTeacher()`로 확인할 것. `TeacherLogout`은 Firebase 로그아웃 + 쿠키 삭제.
 - `/student`: `loadQuestionPapers()`로 목록을 읽어 `components/StudentApp.tsx`에 넘깁니다. StudentApp이 이름을 받고(빈 이름은 "이름을 입력해 주세요.", 저장 안 함) `QuizApp`으로 넘기며, QuizApp이 문제지 목록 → 풀이 → 결과 3단계를 바꿔 보여줍니다. 학생용 파일 업로드 기능은 사용자 결정으로 없앴습니다.
   - `papers.ts`의 폴더 경로는 `join(process.cwd(), "question-papers", …)`처럼 고정해 둡니다. 경로를 변수로 받으면 완성본 만들기에서 "프로젝트 전체를 끌어들인다"는 경고가 납니다.
 - `components/`: `HomeScreen`(학생 문제지 목록), `QuizScreen`(이전/다음, 답을 골라야 다음으로, 마지막엔 "채점하기", 풀이 중 정답·해설 표시 금지), `ResultScreen`("처음으로", "같은 문제 다시 풀기").

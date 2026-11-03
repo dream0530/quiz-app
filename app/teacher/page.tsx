@@ -1,9 +1,34 @@
 import Link from "next/link";
+import TeacherLogin from "@/components/TeacherLogin";
+import TeacherLogout from "@/components/TeacherLogout";
 import { loadQuestionPapers } from "@/lib/quiz/papers";
+import { getSignedInTeacher } from "@/lib/teacher/server";
 
-// 교사 화면의 기본 틀. 로그인·문제 등록·결과 저장은 다음 단계에서 연결한다.
+// 교사 화면. 들어올 때마다 서버에서 로그인 상태와 허용된 교사 계정인지 확인하고,
+// 아니면 교사 화면 내용 대신 로그인 화면만 보낸다. 문제 등록·결과 저장은 다음 단계에서 연결한다.
 // 문제지는 제목과 문항 수만 넘겨, 정답이 이 화면 데이터에 들어가지 않게 한다.
-export default function TeacherPage() {
+export default async function TeacherPage() {
+  const teacher = await getSignedInTeacher();
+
+  if (!teacher.ok && teacher.reason === "not-configured") {
+    return (
+      <section className="card">
+        <h1>교사 로그인</h1>
+        <p className="error">교사 로그인 설정이 아직 끝나지 않았습니다.</p>
+        <p className="hint">Firebase 설정값과 교사 이메일을 .env.local 파일에 넣은 뒤 앱을 다시 켜 주세요.</p>
+        <div className="actions">
+          <Link className="button" href="/">
+            첫 화면으로
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (!teacher.ok) {
+    return <TeacherLogin />;
+  }
+
   const papers = loadQuestionPapers().map((paper) => ({
     id: paper.id,
     title: paper.title,
@@ -13,6 +38,7 @@ export default function TeacherPage() {
   return (
     <section className="card">
       <h1>교사 화면</h1>
+      <p className="hint">{teacher.email} 계정으로 로그인했습니다.</p>
 
       <div className="panel">
         <h2>문제 등록</h2>
@@ -44,6 +70,7 @@ export default function TeacherPage() {
         <Link className="button" href="/">
           첫 화면으로
         </Link>
+        <TeacherLogout />
       </div>
     </section>
   );
