@@ -30,7 +30,7 @@ export function parseQuestionFile(text: string): ParseResult {
   if (!Array.isArray(list)) {
     return {
       ok: false,
-      errors: ["파일 안에 문제 목록(questions)이 없습니다. 선생님께 받은 문제 파일이 맞는지 확인해 주세요."],
+      errors: ["파일 안에 문제 목록(questions)이 없습니다. 문제 파일이 맞는지 확인해 주세요."],
     };
   }
   if (list.length === 0) {

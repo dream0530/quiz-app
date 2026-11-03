@@ -7,7 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 교사가 미리 준비한 문제지(JSON)를 첫 화면 목록에서 골라 4지선다 문제를 끝까지 풀고, 마지막에 점수·문항별 정오·해설을 확인하는 교육용 웹앱입니다. 요구사항의 기준 문서는 [PRD.md](PRD.md)입니다.
 
 - 기술 구성: Next.js + TypeScript, Vercel 배포, PC·휴대폰 모두 사용 가능한 화면
-- 현재 상태: 1일차 앱 완성. 2일차: 교사·학생 화면 나누기, 교사 Google 로그인(로컬 확인, 2026-11-03). 결과 저장(Firestore)은 아직 없음. Vercel에는 프로젝트·배포가 없음.
+- 현재 상태: 1일차 앱 완성. 2일차: 교사·학생 화면 나누기, 교사 Google 로그인, Firestore 문제지 등록·공개·결과 저장·교사 결과표(2026-11-03). Azure AI는 아직 없음. Vercel에는 프로젝트·배포가 없음.
+- Firestore: `(default)` 데이터베이스, 서울(asia-northeast3), Standard, 보안 규칙은 "모두 거부"(프로덕션 모드 기본값) 그대로. 앱 서버만 firebase-admin(서버용 키, 규칙 무시)으로 읽고 씀. 화면(브라우저)은 Firestore에 직접 접근하지 않음. 규칙을 열지 말 것.
+- 서버용 키: `C:\Users\b\firebase-keys\quiz-app-3fd80-service-account.json`(프로젝트 폴더 밖, 내용은 읽거나 출력하지 않음). `.env.local`의 `GOOGLE_APPLICATION_CREDENTIALS`가 이 위치를 가리킴. 배포 때는 배포 설정 화면에 `FIREBASE_SERVICE_ACCOUNT_KEY`(키 파일 내용)를 사용자가 직접 넣어야 함(`lib/firebase/admin.ts`가 둘 다 지원).
+- Claude가 실행하는 PowerShell/Bash는 격리되어 `AppData` 등 일부 쓰기가 실제 컴퓨터에 남지 않음. 실제 컴퓨터에 설치·파일 이동이 필요하면 터미널 패널(run_in_terminal)을 씀. 프로젝트 폴더와 `~/.claude`는 실제로 반영됨.
 - Firebase: 프로젝트 `quiz-app-3fd80`(무료 요금제), 웹 앱 `quiz-app-web`, Authentication에서 Google 로그인 사용 설정, 허용 도메인은 기본값(localhost 포함). 배포하면 그 주소를 허용 도메인에 추가해야 함. Firebase CLI·공식 플러그인(스킬+MCP)은 사용자 범위로 설치·로그인됨(PowerShell에서는 `firebase.cmd`).
 - `.env.local`(Git 제외): `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`(공개되어도 되는 웹 앱 설정값), `TEACHER_EMAIL`(교사로 허용할 Google 계정 1개). 배포할 때는 같은 값을 배포 설정에 넣어야 함.
 - Claude 앱 미리보기에서는 Google 로그인 팝업이 열리지 않음. 교사 로그인 확인은 사용자의 Chrome에서 http://localhost:3000/teacher 로 함.
@@ -22,19 +25,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 구조
 
-- `lib/quiz/`: 화면과 분리된 문제 처리 부분. `parse.ts`는 문제 파일 글자를 검사하고(하나라도 틀리면 파일 전체 거절, "N번 문제: …" 형식의 쉬운 오류 목록, 맨 앞 BOM 허용, 선택 항목 `title` 반환), `score.ts`는 `Math.round(정답 수 / 전체 × 100)`으로 채점, `papers.ts`는 `question-papers/` 폴더를 읽어 문제지 목록을 만듭니다(파일 이름 순, 형식이 틀린 파일은 빼고 경고만 남김, title이 없으면 파일 이름). 2일차에 문제를 다른 곳에서 받아와도 이 부분을 그대로 다시 씁니다.
-- 화면 주소: `/`(`app/page.tsx`, 교사·학생 선택), `/teacher`(`app/teacher/page.tsx`, 교사 화면 기본 틀: 문제 등록·학생 결과는 자리만, 문제지는 제목·문항 수만 넘김), `/student`(`app/student/page.tsx`). 사용자 결정으로 주소를 나눴고, 학생 화면에는 교사 화면 내용이 들어가지 않습니다.
+- `lib/quiz/`: 화면과 분리된 문제 처리 부분. `parse.ts`는 문제 파일 글자를 검사하고(하나라도 틀리면 파일 전체 거절, "N번 문제: …" 형식의 쉬운 오류 목록, 맨 앞 BOM 허용, 선택 항목 `title` 반환), `score.ts`는 `Math.round(정답 수 / 전체 × 100)`으로 채점, `paper-tools.ts`(서버 전용)는 문항 정리·정답 빼기·중복 지문(문항 내용 sha256, 제목 제외)·학생 이름 정리·결과 문서 키(문제지+이름, 영문 대소문자 무시)·평균(소수 첫째 자리).
+- `lib/firebase/admin.ts`(서버 전용 firebase-admin), `lib/store/papers.ts`(`papers/{지문}`: title, questions(정답 포함), published, createdBy, createdAt, updatedAt; 등록은 비공개로, `create()`라 같은 내용은 중복으로 거절), `lib/store/results.ts`(`results/{문제지+이름 키}`: 이름·고른 답·점수·틀린 문항 번호·제출 시각, 다시 풀면 덮어써 최신 1건).
+- API: `POST /api/teacher/papers`(교사만, 서버에서 다시 검사, 409=중복), `PATCH /api/teacher/papers/[id]`(교사만, 공개/비공개), `POST /api/results`(학생 최종 제출: 공개 문제지·모든 답 필요, 서버가 채점·저장한 뒤에만 정답·해설을 돌려줌, 실패 시 503). 교사 API는 `requireTeacher()`로 확인.
+- 화면 주소: `/`(`app/page.tsx`, 교사·학생 선택), `/teacher`(`app/teacher/page.tsx`, 로그인한 교사에게만 `TeacherUpload`(파일 미리보기→제목 확인→등록), 문제지별 `PublishToggle`과 결과표·평균), `/student`(`app/student/page.tsx`, 매 요청 공개 문제지만 정답·해설을 뺀 채로 읽음). 사용자 결정으로 주소를 나눴고, 학생 화면에는 교사 화면 내용이 들어가지 않습니다.
 - 교사 로그인: `components/TeacherLogin.tsx`(Google 팝업 로그인 → ID 토큰을 `app/api/teacher/session/route.ts`에 보냄), 서버가 `lib/teacher/server.ts`의 `checkTeacherToken`으로 firebase-admin `verifyIdToken`(비밀키 없이 projectId만) + `lib/teacher/access.ts`의 `isAllowedTeacher`(Google 확인 이메일 == `TEACHER_EMAIL`)를 검사해 허용될 때만 httpOnly 쿠키 `teacher_token`(ID 토큰, 약 1시간)을 둠. `/teacher`는 매 요청 `getSignedInTeacher()`로 다시 검사하고 아니면 로그인 화면만 보냄. 허용 안 된 계정은 안내 후 Firebase에서도 로그아웃. 쿠키가 만료되면 로그인 화면이 Firebase 로그인 기록으로 자동 재확인. 앞으로 교사 기능(API 등)도 `getSignedInTeacher()`로 확인할 것. `TeacherLogout`은 Firebase 로그아웃 + 쿠키 삭제.
-- `/student`: `loadQuestionPapers()`로 목록을 읽어 `components/StudentApp.tsx`에 넘깁니다. StudentApp이 이름을 받고(빈 이름은 "이름을 입력해 주세요.", 저장 안 함) `QuizApp`으로 넘기며, QuizApp이 문제지 목록 → 풀이 → 결과 3단계를 바꿔 보여줍니다. 학생용 파일 업로드 기능은 사용자 결정으로 없앴습니다.
-  - `papers.ts`의 폴더 경로는 `join(process.cwd(), "question-papers", …)`처럼 고정해 둡니다. 경로를 변수로 받으면 완성본 만들기에서 "프로젝트 전체를 끌어들인다"는 경고가 납니다.
+- `/student`: `components/StudentApp.tsx`가 이름을 받고(빈 이름은 "이름을 입력해 주세요.") `QuizApp`으로 넘기며, QuizApp이 문제지 목록 → 풀이 → 제출(서버 채점·저장, 실패 시 "다시 시도") → 결과를 바꿔 보여줍니다. 학생용 파일 업로드 기능은 사용자 결정으로 없앴습니다.
 - `components/`: `HomeScreen`(학생 문제지 목록), `QuizScreen`(이전/다음, 답을 골라야 다음으로, 마지막엔 "채점하기", 풀이 중 정답·해설 표시 금지), `ResultScreen`("처음으로", "같은 문제 다시 풀기").
 
 ## 문제지 추가하기
 
-- `question-papers/` 폴더에 문제 파일(.json)을 넣으면 첫 화면 목록에 나옵니다. `npm.cmd run dev`로 켠 상태에서는 브라우저를 새로고침하면 바로 반영됩니다(확인함).
-- 완성본(`npm.cmd run build` 후 실행, 또는 나중의 배포)에서는 목록이 만들 때 고정되므로, 파일을 추가한 뒤 다시 만들어야 합니다.
-- 알려진 한계: 목록 문제지의 정답도 화면 뒤쪽 데이터에 들어 있어 볼 수 있습니다. 2일차에 사용자와 함께 막는 방법을 정합니다.
-- 사용자가 정한 사항: 앞 문제로 돌아가 답 변경 가능, 점수는 반올림 정수, 틀린 파일은 전체 거절(목록에서 뺌), 문제지 목록은 `question-papers` 폴더만(sample-questions.json은 넣지 않음, title 없으면 파일 이름), 첫 화면은 교사·학생 선택이고 두 화면은 주소를 나눔, 학생 파일 업로드 없음. PRD.md에 반영됨.
+- 교사가 교사 화면에서 문제 파일(.json)을 올려 등록(비공개로 저장)하고 "공개하기"를 누르면 학생 목록에 나옵니다. `question-papers/` 폴더의 파일은 이제 학생 목록에 나오지 않고, 올려 볼 예시 파일로만 남겨 둠(사용자 결정, 2026-11-03).
+- 사용자가 정한 사항: 앞 문제로 돌아가 답 변경 가능, 점수는 반올림 정수, 틀린 파일은 전체 거절, 첫 화면은 교사·학생 선택이고 두 화면은 주소를 나눔, 학생 파일 업로드 없음, 학생 목록은 교사가 공개한 문제지만, Firestore는 서울. PRD.md에 반영됨.
 
 ## 사용자에 대해
 

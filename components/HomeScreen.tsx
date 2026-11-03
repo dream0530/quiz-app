@@ -1,14 +1,14 @@
 "use client";
 
-import type { Question, QuestionPaper } from "@/lib/quiz/types";
+import type { StudentPaper } from "@/lib/quiz/types";
 
 type Props = {
-  papers: QuestionPaper[];
+  papers: StudentPaper[];
   studentName: string;
-  onStart: (questions: Question[]) => void;
+  onStart: (paper: StudentPaper) => void;
 };
 
-// 학생 문제지 목록: question-papers 폴더의 문제지 목록에서 골라 바로 풀이를 시작한다.
+// 학생 문제지 목록: 교사가 공개한 문제지에서 골라 바로 풀이를 시작한다.
 export default function HomeScreen({ papers, studentName, onStart }: Props) {
   return (
     <section className="card">
@@ -19,7 +19,7 @@ export default function HomeScreen({ papers, studentName, onStart }: Props) {
         <ul className="papers">
           {papers.map((paper) => (
             <li key={paper.id}>
-              <button className="paper" onClick={() => onStart(paper.questions)}>
+              <button className="paper" onClick={() => onStart(paper)}>
                 <span className="paper-title">{paper.title}</span>
                 <span className="paper-count">{paper.questions.length}문항</span>
               </button>
@@ -27,7 +27,7 @@ export default function HomeScreen({ papers, studentName, onStart }: Props) {
           ))}
         </ul>
       ) : (
-        <p className="hint">아직 준비된 문제지가 없습니다. 선생님께 문의해 주세요.</p>
+        <p className="hint">아직 공개된 문제지가 없습니다. 선생님께 문의해 주세요.</p>
       )}
     </section>
   );

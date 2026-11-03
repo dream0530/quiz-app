@@ -4,5 +4,7 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 .env*
+*firebase-adminsdk*.json
+*service-account*.json
 .vercel
 .claude/settings.local.json

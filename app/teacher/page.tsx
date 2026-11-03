@@ -1,12 +1,16 @@
 import Link from "next/link";
+import PublishToggle from "@/components/PublishToggle";
 import TeacherLogin from "@/components/TeacherLogin";
 import TeacherLogout from "@/components/TeacherLogout";
-import { loadQuestionPapers } from "@/lib/quiz/papers";
+import TeacherUpload from "@/components/TeacherUpload";
+import { isStoreConfigured } from "@/lib/firebase/admin";
+import { averageScore } from "@/lib/quiz/paper-tools";
+import { listTeacherPapers, type TeacherPaper } from "@/lib/store/papers";
+import { listResultsByPaper, type StudentResult } from "@/lib/store/results";
 import { getSignedInTeacher } from "@/lib/teacher/server";
 
 // 교사 화면. 들어올 때마다 서버에서 로그인 상태와 허용된 교사 계정인지 확인하고,
-// 아니면 교사 화면 내용 대신 로그인 화면만 보낸다. 문제 등록·결과 저장은 다음 단계에서 연결한다.
-// 문제지는 제목과 문항 수만 넘겨, 정답이 이 화면 데이터에 들어가지 않게 한다.
+// 아니면 교사 화면 내용(문제지·학생 결과) 대신 로그인 화면만 보낸다.
 export default async function TeacherPage() {
   const teacher = await getSignedInTeacher();
 
@@ -29,42 +33,42 @@ export default async function TeacherPage() {
     return <TeacherLogin />;
   }
 
-  const papers = loadQuestionPapers().map((paper) => ({
-    id: paper.id,
-    title: paper.title,
-    count: paper.questions.length,
-  }));
+  let papers: TeacherPaper[] | null = null;
+  let results = new Map<string, StudentResult[]>();
+  if (isStoreConfigured()) {
+    try {
+      [papers, results] = await Promise.all([listTeacherPapers(), listResultsByPaper()]);
+    } catch (error) {
+      console.error("교사 화면 데이터 읽기 실패", error);
+    }
+  }
 
   return (
     <section className="card">
       <h1>교사 화면</h1>
       <p className="hint">{teacher.email} 계정으로 로그인했습니다.</p>
 
-      <div className="panel">
-        <h2>문제 등록</h2>
-        <p className="hint">문제를 등록하는 기능은 다음 단계에서 연결됩니다.</p>
-        <p>지금 학생들이 풀 수 있는 문제지</p>
-        {papers.length > 0 ? (
-          <ul className="papers">
-            {papers.map((paper) => (
-              <li key={paper.id} className="paper static">
-                <span className="paper-title">{paper.title}</span>
-                <span className="paper-count">{paper.count}문항</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="hint">아직 준비된 문제지가 없습니다.</p>
-        )}
-      </div>
+      {papers === null ? (
+        <div className="panel">
+          <p className="error">저장소(Firestore)에 연결하지 못했습니다.</p>
+          <p className="hint">서버용 키 설정을 확인한 뒤 앱을 다시 켜 주세요.</p>
+        </div>
+      ) : (
+        <>
+          <div className="panel">
+            <h2>문제지 등록</h2>
+            <TeacherUpload />
+          </div>
 
-      <div className="panel">
-        <h2>학생 풀이 결과</h2>
-        <p className="hint">
-          학생들의 풀이 결과를 모아 보는 기능은 다음 단계에서 연결됩니다. 지금은 결과가 저장되지
-          않습니다.
-        </p>
-      </div>
+          <div className="panel">
+            <h2>등록한 문제지와 학생 결과</h2>
+            {papers.length === 0 && <p className="hint">아직 등록한 문제지가 없습니다.</p>}
+            {papers.map((paper) => (
+              <PaperResults key={paper.id} paper={paper} results={results.get(paper.id) ?? []} />
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="actions">
         <Link className="button" href="/">
@@ -73,5 +77,63 @@ export default async function TeacherPage() {
         <TeacherLogout />
       </div>
     </section>
+  );
+}
+
+const timeFormat = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+// 문제지 하나: 공개 상태와 학생 결과표, 평균(학생 이름별 최신 결과 기준).
+function PaperResults({ paper, results }: { paper: TeacherPaper; results: StudentResult[] }) {
+  const average = averageScore(results.map((r) => r.score));
+  return (
+    <article className="paper-block">
+      <div className="paper-head">
+        <div>
+          <h3>{paper.title}</h3>
+          <p className="hint">
+            {paper.questionCount}문항 · {paper.published ? "공개 중" : "비공개"}
+          </p>
+        </div>
+        <PublishToggle id={paper.id} published={paper.published} />
+      </div>
+
+      {results.length === 0 ? (
+        <p className="hint">아직 제출한 학생이 없습니다.</p>
+      ) : (
+        <>
+          <p className="average">
+            평균 <strong>{average}</strong>점 <span>(학생 {results.length}명)</span>
+          </p>
+          <div className="table-wrap">
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>점수</th>
+                  <th>틀린 문제</th>
+                  <th>제출 시각</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr key={r.studentName}>
+                    <td>{r.studentName}</td>
+                    <td>{r.score}점</td>
+                    <td>{r.wrongQuestions.length === 0 ? "없음" : `${r.wrongQuestions.join(", ")}번`}</td>
+                    <td>{timeFormat.format(r.submittedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </article>
   );
 }

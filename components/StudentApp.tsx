@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import QuizApp from "@/components/QuizApp";
-import type { QuestionPaper } from "@/lib/quiz/types";
+import type { StudentPaper } from "@/lib/quiz/types";
 
 // 학생 화면: 이름을 먼저 받고, 그다음 기존 문제풀이(QuizApp)로 넘어간다.
-// 이름은 지금 이 화면에서만 쓰고 어디에도 저장하지 않는다.
-export default function StudentApp({ papers }: { papers: QuestionPaper[] }) {
+// 이름은 최종 제출 때 결과와 함께 저장된다.
+export default function StudentApp({ papers }: { papers: StudentPaper[] }) {
   const [name, setName] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
