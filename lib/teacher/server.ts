@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
 import { TEACHER_COOKIE, isAllowedTeacher, type TeacherCheck } from "./access";
+import { verifyFirebaseIdToken } from "./verify";
 
 // 서버에서만 쓰는 교사 확인. Google 로그인 증명(ID 토큰)을 Firebase 공개 키로 검사하므로
 // 비밀키가 필요 없다. 필요한 값은 .env.local(또는 나중의 배포 설정)에서 읽는다.
@@ -24,12 +24,12 @@ export async function checkTeacherToken(
 
   let decoded;
   try {
-    decoded = await adminAuth().verifyIdToken(idToken);
+    decoded = await verifyFirebaseIdToken(idToken, projectId!);
   } catch {
     return { ok: false, reason: "not-signed-in" };
   }
 
-  if (!isAllowedTeacher(decoded.email, decoded.email_verified, allowedEmail)) {
+  if (!isAllowedTeacher(decoded.email, decoded.emailVerified, allowedEmail)) {
     return { ok: false, reason: "not-allowed" };
   }
   return { ok: true, email: decoded.email!, expiresAt: decoded.exp * 1000 };

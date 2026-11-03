@@ -1,5 +1,4 @@
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
 // 서버에서만 쓰는 Firebase 연결. 서버용 키는 코드에 넣지 않고 아래 둘 중 하나로 받는다.
@@ -23,10 +22,6 @@ function adminApp() {
     projectId,
     credential: key ? cert(JSON.parse(key)) : applicationDefault(),
   });
-}
-
-export function adminAuth() {
-  return getAuth(adminApp());
 }
 
 export function adminDb() {
