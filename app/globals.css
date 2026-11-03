@@ -89,6 +89,82 @@ p {
   cursor: not-allowed;
 }
 
+h2 {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+
+.roles {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.role {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.role:hover {
+  border-color: var(--primary);
+}
+
+.role-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.role-desc {
+  color: var(--muted);
+}
+
+.panel {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.field input {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+.error {
+  margin-top: 8px;
+  color: var(--error);
+  font-weight: 600;
+}
+
+a.button {
+  text-decoration: none;
+}
+
 .papers {
   list-style: none;
   padding: 0;
@@ -116,6 +192,14 @@ p {
 
 .paper:hover {
   border-color: var(--primary);
+}
+
+.paper.static {
+  cursor: default;
+}
+
+.paper.static:hover {
+  border-color: var(--border);
 }
 
 .paper-title {

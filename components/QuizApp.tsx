@@ -12,14 +12,20 @@ type Stage =
   | { name: "quiz"; questions: Question[]; attempt: number }
   | { name: "result"; questions: Question[]; graded: GradeResult; attempt: number };
 
-// 한 페이지 안에서 첫 화면 → 풀이 → 결과 3단계를 바꿔 보여준다.
-export default function QuizApp({ papers }: { papers: QuestionPaper[] }) {
+type Props = {
+  papers: QuestionPaper[];
+  studentName: string;
+};
+
+// 한 페이지 안에서 문제지 목록 → 풀이 → 결과 3단계를 바꿔 보여준다.
+export default function QuizApp({ papers, studentName }: Props) {
   const [stage, setStage] = useState<Stage>({ name: "home" });
 
   if (stage.name === "home") {
     return (
       <HomeScreen
         papers={papers}
+        studentName={studentName}
         onStart={(questions) => setStage({ name: "quiz", questions, attempt: 0 })}
       />
     );
@@ -44,6 +50,7 @@ export default function QuizApp({ papers }: { papers: QuestionPaper[] }) {
 
   return (
     <ResultScreen
+      studentName={studentName}
       questions={stage.questions}
       graded={stage.graded}
       onRetry={() =>

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 교사가 미리 준비한 문제지(JSON)를 첫 화면 목록에서 골라 4지선다 문제를 끝까지 풀고, 마지막에 점수·문항별 정오·해설을 확인하는 교육용 웹앱입니다. 요구사항의 기준 문서는 [PRD.md](PRD.md)입니다.
 
 - 기술 구성: Next.js + TypeScript, Vercel 배포, PC·휴대폰 모두 사용 가능한 화면
-- 현재 상태: 1일차 앱 완성(로컬 실행까지 확인). 배포 안 함, Git 저장소 아직 없음.
+- 현재 상태: 1일차 앱 완성. 2일차 시작: 교사·학생 화면 나누기 추가(2026-11-03, 로컬 확인). Google 로그인·결과 저장은 아직 없음. Firebase CLI·공식 플러그인(스킬+MCP)은 사용자 범위로 설치·로그인됨, Firebase 프로젝트는 아직 없음.
 - `sample-questions.json`은 파일 형식 참고용·검사용입니다. 앱에 고정하거나 자동으로 불러오지 않습니다.
 
 ## 명령어 (Windows PowerShell에서 `npm.cmd`로 실행 확인함)
@@ -20,16 +20,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 구조
 
 - `lib/quiz/`: 화면과 분리된 문제 처리 부분. `parse.ts`는 문제 파일 글자를 검사하고(하나라도 틀리면 파일 전체 거절, "N번 문제: …" 형식의 쉬운 오류 목록, 맨 앞 BOM 허용, 선택 항목 `title` 반환), `score.ts`는 `Math.round(정답 수 / 전체 × 100)`으로 채점, `papers.ts`는 `question-papers/` 폴더를 읽어 문제지 목록을 만듭니다(파일 이름 순, 형식이 틀린 파일은 빼고 경고만 남김, title이 없으면 파일 이름). 2일차에 문제를 다른 곳에서 받아와도 이 부분을 그대로 다시 씁니다.
-- `app/page.tsx`(서버): `loadQuestionPapers()`로 목록을 읽어 `components/QuizApp.tsx`(브라우저)에 넘깁니다. QuizApp이 첫 화면 → 풀이 → 결과 3단계를 바꿔 보여줍니다. 학생용 파일 업로드 기능은 사용자 결정으로 없앴습니다.
+- 화면 주소: `/`(`app/page.tsx`, 교사·학생 선택), `/teacher`(`app/teacher/page.tsx`, 교사 화면 기본 틀: 문제 등록·학생 결과는 자리만, 문제지는 제목·문항 수만 넘김), `/student`(`app/student/page.tsx`). 사용자 결정으로 주소를 나눴고, 학생 화면에는 교사 화면 내용이 들어가지 않습니다. 아직 로그인이 없어 누구나 `/teacher`를 열 수 있습니다.
+- `/student`: `loadQuestionPapers()`로 목록을 읽어 `components/StudentApp.tsx`에 넘깁니다. StudentApp이 이름을 받고(빈 이름은 "이름을 입력해 주세요.", 저장 안 함) `QuizApp`으로 넘기며, QuizApp이 문제지 목록 → 풀이 → 결과 3단계를 바꿔 보여줍니다. 학생용 파일 업로드 기능은 사용자 결정으로 없앴습니다.
   - `papers.ts`의 폴더 경로는 `join(process.cwd(), "question-papers", …)`처럼 고정해 둡니다. 경로를 변수로 받으면 완성본 만들기에서 "프로젝트 전체를 끌어들인다"는 경고가 납니다.
-- `components/`: `HomeScreen`(첫 화면: 문제지 목록만), `QuizScreen`(이전/다음, 답을 골라야 다음으로, 마지막엔 "채점하기", 풀이 중 정답·해설 표시 금지), `ResultScreen`("처음으로", "같은 문제 다시 풀기").
+- `components/`: `HomeScreen`(학생 문제지 목록), `QuizScreen`(이전/다음, 답을 골라야 다음으로, 마지막엔 "채점하기", 풀이 중 정답·해설 표시 금지), `ResultScreen`("처음으로", "같은 문제 다시 풀기").
 
 ## 문제지 추가하기
 
 - `question-papers/` 폴더에 문제 파일(.json)을 넣으면 첫 화면 목록에 나옵니다. `npm.cmd run dev`로 켠 상태에서는 브라우저를 새로고침하면 바로 반영됩니다(확인함).
 - 완성본(`npm.cmd run build` 후 실행, 또는 나중의 배포)에서는 목록이 만들 때 고정되므로, 파일을 추가한 뒤 다시 만들어야 합니다.
 - 알려진 한계: 목록 문제지의 정답도 화면 뒤쪽 데이터에 들어 있어 볼 수 있습니다. 2일차에 사용자와 함께 막는 방법을 정합니다.
-- 사용자가 정한 사항: 앞 문제로 돌아가 답 변경 가능, 점수는 반올림 정수, 틀린 파일은 전체 거절(목록에서 뺌), 첫 화면은 `question-papers` 목록만(sample-questions.json은 넣지 않음, title 없으면 파일 이름), 학생 파일 업로드 없음. PRD.md에 반영됨.
+- 사용자가 정한 사항: 앞 문제로 돌아가 답 변경 가능, 점수는 반올림 정수, 틀린 파일은 전체 거절(목록에서 뺌), 문제지 목록은 `question-papers` 폴더만(sample-questions.json은 넣지 않음, title 없으면 파일 이름), 첫 화면은 교사·학생 선택이고 두 화면은 주소를 나눔, 학생 파일 업로드 없음. PRD.md에 반영됨.
 
 ## 사용자에 대해
 

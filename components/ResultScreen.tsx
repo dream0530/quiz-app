@@ -4,20 +4,21 @@ import { useEffect } from "react";
 import type { GradeResult, Question } from "@/lib/quiz/types";
 
 type Props = {
+  studentName: string;
   questions: Question[];
   graded: GradeResult;
   onRetry: () => void;
   onHome: () => void;
 };
 
-export default function ResultScreen({ questions, graded, onRetry, onHome }: Props) {
+export default function ResultScreen({ studentName, questions, graded, onRetry, onHome }: Props) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   return (
     <section className="card">
-      <h1>채점 결과</h1>
+      <h1>{studentName} 학생의 채점 결과</h1>
       <p className="score">
         <strong>{graded.score}</strong>점 <span>/ 100점</span>
       </p>
